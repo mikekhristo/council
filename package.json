@@ -1,0 +1,66 @@
+{
+  "name": "council",
+  "version": "0.1.0",
+  "description": "A local-first, bring-your-own-key workspace where multiple frontier LLMs deliberate on a question across rounds, then a chosen arbiter drafts the synthesis.",
+  "author": "Mike Khristo <mike@uselayers.ai>",
+  "license": "MIT",
+  "homepage": "https://github.com/mikekhristo/council#readme",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/mikekhristo/council.git"
+  },
+  "bugs": {
+    "url": "https://github.com/mikekhristo/council/issues"
+  },
+  "private": true,
+  "keywords": [
+    "llm",
+    "ai",
+    "claude",
+    "gpt",
+    "gemini",
+    "grok",
+    "deliberation",
+    "multi-agent",
+    "byok",
+    "local-first"
+  ],
+  "scripts": {
+    "dev": "next dev --turbopack -p 3333",
+    "build": "next build",
+    "start": "next start",
+    "lint": "eslint"
+  },
+  "dependencies": {
+    "@ai-sdk/anthropic": "^3.0.58",
+    "@ai-sdk/google": "^3.0.43",
+    "@ai-sdk/openai": "^3.0.41",
+    "@ai-sdk/react": "^3.0.118",
+    "@ai-sdk/xai": "^3.0.67",
+    "ai": "^6.0.116",
+    "better-sqlite3": "^12.6.2",
+    "drizzle-orm": "^0.45.1",
+    "mammoth": "^1.11.0",
+    "nanoid": "^5.1.6",
+    "next": "16.1.6",
+    "p-limit": "^7.3.0",
+    "pdf-parse": "^2.4.5",
+    "react": "19.2.3",
+    "react-dom": "19.2.3",
+    "zod": "^4.3.6",
+    "zustand": "^5.0.11"
+  },
+  "devDependencies": {
+    "@tailwindcss/postcss": "^4",
+    "@types/better-sqlite3": "^7.6.13",
+    "@types/node": "^20",
+    "@types/pdf-parse": "^1.1.5",
+    "@types/react": "^19",
+    "@types/react-dom": "^19",
+    "drizzle-kit": "^0.31.9",
+    "eslint": "^9",
+    "eslint-config-next": "16.1.6",
+    "tailwindcss": "^4",
+    "typescript": "^5"
+  }
+}
