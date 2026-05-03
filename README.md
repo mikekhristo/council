@@ -16,30 +16,9 @@ It is meant for thinking, not chatting. Long-form deliberation about hard questi
 - **Document attachments** — drop in `.txt / .md / .pdf / .docx / .csv` for the council to read
 - **Bring your own keys** — no accounts, no telemetry, no servers in the middle. Your keys, your machine, your data.
 
-## Requirements
+## Install — pick your path
 
-- Node.js 20+ (for `next` and `better-sqlite3`)
-- An API key for at least **two** of: Anthropic, OpenAI, Google AI Studio, xAI
-
-## Install
-
-```bash
-git clone <your-fork-url> council
-cd council
-npm install
-cp .env.example .env.local
-```
-
-Then open `.env.local` and add API keys for the providers you want to use. You only need two:
-
-```env
-ANTHROPIC_API_KEY=sk-ant-...
-OPENAI_API_KEY=sk-...
-GOOGLE_GENERATIVE_AI_API_KEY=...
-XAI_API_KEY=xai-...
-```
-
-Where to get keys:
+You need an API key for at least **two** of Anthropic, OpenAI, Google AI Studio, xAI:
 
 | Provider | Console |
 |---|---|
@@ -48,15 +27,47 @@ Where to get keys:
 | Google AI Studio | https://aistudio.google.com/apikey |
 | xAI | https://console.x.ai |
 
-Council degrades gracefully — providers without keys appear disabled with a *missing API key* tag in the UI.
+### A. Desktop app (recommended for everyone)
 
-## Run
+Download the latest build for your OS from [Releases](https://github.com/mikekhristo/council/releases):
+
+- **macOS:** `Council-<version>-arm64.dmg` (Apple Silicon) or `Council-<version>-x64.dmg` (Intel) — signed with our Developer ID, no Gatekeeper warnings
+- **Windows:** `Council-Setup-<version>.exe` — *unsigned*, see note below
+- **Linux:** `Council-<version>.AppImage` or `.deb`
+
+Open the app → menu **Council → Settings…** → paste your API keys → click **Save & restart server**. Done.
+
+> **Windows users:** the installer is unsigned, so SmartScreen will warn the first time. Click *More info → Run anyway*. (We may add a Windows code-signing cert later.)
+
+### B. `npx` (for developers — no install)
+
+If you have Node 20+:
 
 ```bash
-npm run dev
+npx @mikekhristo/council config       # interactively set API keys
+npx @mikekhristo/council               # boot it up; auto-opens browser
 ```
 
-Then open http://localhost:3333.
+Keys live at `~/.config/council/config.json` (chmod 600), data at `~/.local/share/council/`.
+
+### C. Build from source
+
+```bash
+git clone https://github.com/mikekhristo/council.git
+cd council
+npm install
+cp .env.example .env.local            # add your API keys
+npm run dev                           # http://localhost:3333
+```
+
+For the desktop app development loop:
+
+```bash
+npm run electron:dev                  # runs next dev + electron with hot reload
+npm run electron:build:mac            # produces dist/Council-*.dmg locally (unsigned)
+```
+
+Council degrades gracefully — providers without keys appear disabled with a *missing API key* tag in the UI.
 
 The SQLite schema is created automatically on first run (no migration step). Sessions are written to `./council.db`. Uploaded documents are written to `./uploads/`.
 

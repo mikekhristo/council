@@ -1,0 +1,48 @@
+name: npm-publish
+
+# Publish @mikekhristo/council to npm whenever a new release tag lands.
+# Skipped silently if NPM_TOKEN secret is not configured.
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Check for NPM_TOKEN
+        id: token
+        env:
+          NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
+        run: |
+          if [ -n "$NPM_TOKEN" ]; then
+            echo "have_token=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "have_token=false" >> "$GITHUB_OUTPUT"
+            echo "::notice::NPM_TOKEN not set — skipping npm publish."
+          fi
+
+      - uses: actions/setup-node@v4
+        if: steps.token.outputs.have_token == 'true'
+        with:
+          node-version: '20'
+          cache: 'npm'
+          registry-url: 'https://registry.npmjs.org'
+
+      - name: Install dependencies
+        if: steps.token.outputs.have_token == 'true'
+        run: npm ci
+
+      - name: Build (prepublishOnly will also run)
+        if: steps.token.outputs.have_token == 'true'
+        run: npm run build
+
+      - name: Publish to npm
+        if: steps.token.outputs.have_token == 'true'
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+        run: npm publish --access public

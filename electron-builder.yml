@@ -1,0 +1,99 @@
+appId: xyz.10xv.council
+productName: Council
+copyright: Copyright © 2026 Mike Khristo
+
+directories:
+  output: dist
+  buildResources: build
+
+# What to include inside the .app / .exe payload.
+# We bundle Next's standalone server output (full Node app + all deps).
+files:
+  - "electron/**/*"
+  - "package.json"
+
+extraResources:
+  - from: ".next/standalone"
+    to: "app/.next/standalone"
+    filter: ["**/*"]
+  - from: ".next/static"
+    to: "app/.next/standalone/.next/static"
+    filter: ["**/*"]
+  - from: "public"
+    to: "app/.next/standalone/public"
+    filter: ["**/*"]
+
+# Don't ask electron-builder to repackage native modules — Next's
+# standalone output already includes them at the right runtime version
+# for Electron's bundled Node when we use buildDependenciesFromSource.
+asarUnpack:
+  - "**/*.node"
+
+mac:
+  category: public.app-category.productivity
+  hardenedRuntime: true
+  gatekeeperAssess: false
+  darkModeSupport: true
+  entitlements: build/entitlements.mac.plist
+  entitlementsInherit: build/entitlements.mac.plist
+  # CI sets APPLE_ID / APPLE_APP_SPECIFIC_PASSWORD / APPLE_TEAM_ID and
+  # the keychain holds the Developer ID cert, so notarization runs
+  # automatically on every release tag. For local unsigned builds use:
+  #   npx electron-builder --mac --config.mac.notarize=false --config.mac.identity=null
+  notarize:
+    teamId: ${env.APPLE_TEAM_ID}
+  target:
+    - target: dmg
+      arch:
+        - arm64
+        - x64
+    - target: zip
+      arch:
+        - arm64
+        - x64
+  icon: build/icon.icns
+
+dmg:
+  sign: false
+  contents:
+    - x: 130
+      y: 220
+    - x: 410
+      y: 220
+      type: link
+      path: /Applications
+
+win:
+  target:
+    - target: nsis
+      arch:
+        - x64
+    - target: portable
+      arch:
+        - x64
+  # Unsigned for now — users will see a SmartScreen warning the first
+  # time. Documented in the README.
+  signAndEditExecutable: false
+  icon: build/icon.ico
+
+nsis:
+  oneClick: false
+  perMachine: false
+  allowToChangeInstallationDirectory: true
+  shortcutName: Council
+
+linux:
+  category: Utility
+  target:
+    - target: AppImage
+      arch:
+        - x64
+        - arm64
+    - target: deb
+      arch:
+        - x64
+  icon: build/icon.png
+
+publish:
+  provider: github
+  releaseType: release

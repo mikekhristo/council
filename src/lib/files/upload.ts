@@ -4,7 +4,8 @@ import { nanoid } from 'nanoid';
 import { FileAttachment } from '../types';
 import { extractText } from './extract';
 
-const UPLOADS_DIR = path.join(process.cwd(), 'uploads');
+const UPLOADS_DIR =
+  process.env.COUNCIL_UPLOADS_DIR ?? path.join(process.cwd(), 'uploads');
 
 /**
  * Ensure the uploads directory exists.
