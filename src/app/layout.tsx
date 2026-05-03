@@ -53,6 +53,11 @@ export default function RootLayout({
     <html
       lang="en"
       data-theme="light"
+      // The no-flash script in <head> mutates data-theme based on
+      // localStorage / prefers-color-scheme BEFORE React hydrates, so
+      // the SSR-rendered value won't match. That's intentional — tell
+      // React not to warn about it.
+      suppressHydrationWarning
       className={`${newsreader.variable} ${plexSans.variable} ${jetbrainsMono.variable}`}
     >
       <head>
