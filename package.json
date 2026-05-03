@@ -45,15 +45,15 @@
   ],
   "scripts": {
     "dev": "next dev --turbopack -p 3333",
-    "build": "next build",
+    "build": "next build && node scripts/post-build.cjs",
     "start": "next start",
     "lint": "eslint",
     "electron:dev": "concurrently -k \"COUNCIL_DEV_PORT=3333 next dev -p 3333\" \"wait-on http://127.0.0.1:3333 && electron .\"",
-    "electron:build": "next build && electron-builder --config electron-builder.yml",
-    "electron:build:mac": "next build && electron-builder --config electron-builder.yml --mac",
-    "electron:build:win": "next build && electron-builder --config electron-builder.yml --win",
-    "electron:build:linux": "next build && electron-builder --config electron-builder.yml --linux",
-    "prepublishOnly": "next build",
+    "electron:build": "npm run build && electron-builder --config electron-builder.yml",
+    "electron:build:mac": "npm run build && electron-builder --config electron-builder.yml --mac",
+    "electron:build:win": "npm run build && electron-builder --config electron-builder.yml --win",
+    "electron:build:linux": "npm run build && electron-builder --config electron-builder.yml --linux",
+    "prepublishOnly": "npm run build",
     "prepare:icons": "electron-icon-builder --input=build/icon-source.png --output=build --flatten"
   },
   "dependencies": {

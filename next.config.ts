@@ -1,16 +1,22 @@
 import type { NextConfig } from 'next';
 import path from 'node:path';
 
+const projectRoot = path.join(__dirname);
+
 const nextConfig: NextConfig = {
   // Self-contained Node bundle — required by both the Electron desktop
   // wrapper (electron/main.cjs) and the npx council CLI (bin/council.cjs).
   // Produces .next/standalone with all dependencies inlined.
   output: 'standalone',
 
-  // Pin the file-tracing root so the standalone output lands at
-  // .next/standalone/server.js even when an outer lockfile makes Next
-  // infer a higher workspace root.
-  outputFileTracingRoot: path.join(__dirname),
+  // Pin the workspace root for both the dev server (Turbopack) and
+  // production file tracing. Without these, a stray package.json in a
+  // parent directory makes Next infer the wrong root, which breaks
+  // CSS chunk serving in dev and standalone bundle layout in prod.
+  turbopack: {
+    root: projectRoot,
+  },
+  outputFileTracingRoot: projectRoot,
 
   // Force-include better-sqlite3's compiled native binding. Next traces
   // JS imports but doesn't follow the runtime require() inside
