@@ -1,6 +1,6 @@
 import { streamText } from 'ai';
 import { nanoid } from 'nanoid';
-import { providerRegistry } from '../providers/registry';
+import { getProviderRegistry } from '../providers/registry';
 import { buildSynthesisPrompt, buildSynthesisSystemPrompt } from './prompts';
 import { getProviderConfig } from '../providers/config';
 import type { Session, Round, SynthesisResult, SynthesisPoint, ProviderId } from '../types';
@@ -53,7 +53,8 @@ export async function runSynthesis(
 
   console.log(`[synthesis] Arbiter selected: ${synthesizerId} (model: ${modelId})`);
 
-  const model = providerRegistry.languageModel(modelId as Parameters<typeof providerRegistry.languageModel>[0]);
+  const registry = getProviderRegistry();
+  const model = registry.languageModel(modelId as Parameters<typeof registry.languageModel>[0]);
   const systemPrompt = buildSynthesisSystemPrompt();
   const userPrompt = buildSynthesisPrompt(session.topic, allRounds);
 

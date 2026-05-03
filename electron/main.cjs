@@ -1,25 +1,51 @@
 // Council — Electron main process
 //
-// Boots the Next.js standalone server in a child process with API keys
-// pulled from electron-store, then loads it in a BrowserWindow.
-// Settings are managed in-app via a small native window — no .env.local
-// required for desktop users.
+// Boots the Next.js standalone server in a child process. API keys are
+// stored in ~/.config/council/config.json (chmod 600), the SAME file
+// the npx CLI and the in-browser /settings page write to — all three
+// surfaces share state.
 
 const { app, BrowserWindow, ipcMain, Menu, shell } = require('electron');
+const fs = require('node:fs');
+const os = require('node:os');
 const path = require('node:path');
 const { spawn } = require('node:child_process');
 const net = require('node:net');
-const Store = require('electron-store').default ?? require('electron-store');
 
 const isDev = !app.isPackaged;
-const store = new Store({
-  name: 'council-settings',
-  defaults: {
-    keys: { anthropic: '', openai: '', google: '', xai: '' },
-    arbiter: 'random',
-    maxRounds: 3,
-  },
-});
+
+// ─── Shared key store (mirrors src/lib/providers/key-store.ts) ──────
+function configDir() {
+  if (process.env.COUNCIL_CONFIG_DIR) return process.env.COUNCIL_CONFIG_DIR;
+  const xdg = process.env.XDG_CONFIG_HOME;
+  return xdg
+    ? path.join(xdg, 'council')
+    : path.join(os.homedir(), '.config', 'council');
+}
+function configPath() {
+  return path.join(configDir(), 'config.json');
+}
+function readKeys() {
+  try {
+    const parsed = JSON.parse(fs.readFileSync(configPath(), 'utf8'));
+    if (parsed && typeof parsed === 'object' && parsed.keys) return { ...parsed.keys };
+  } catch {}
+  return {};
+}
+function writeKeys(next) {
+  const dir = configDir();
+  fs.mkdirSync(dir, { recursive: true });
+  const target = configPath();
+  const tmp = `${target}.${process.pid}.tmp`;
+  fs.writeFileSync(tmp, JSON.stringify({ keys: next }, null, 2), { mode: 0o600 });
+  fs.renameSync(tmp, target);
+  try { fs.chmodSync(target, 0o600); } catch {}
+}
+function maskKey(v) {
+  if (!v) return '';
+  if (v.length <= 12) return '…';
+  return `${v.slice(0, 6)}…${v.slice(-4)}`;
+}
 
 let mainWindow = null;
 let settingsWindow = null;
@@ -47,12 +73,10 @@ function getFreePort() {
 }
 
 function buildEnv() {
-  const keys = store.get('keys') ?? {};
+  // The bundled server reads keys directly from the shared config file
+  // on every request via key-store.ts, so we no longer need to inject
+  // them into env at spawn time. Just set process basics + data paths.
   const env = { ...process.env };
-  for (const [provider, envVar] of Object.entries(PROVIDER_ENV_VARS)) {
-    const v = keys[provider];
-    if (v && v.trim()) env[envVar] = v.trim();
-  }
   env.PORT = String(serverPort);
   env.HOSTNAME = '127.0.0.1';
   env.NODE_ENV = 'production';
@@ -60,15 +84,11 @@ function buildEnv() {
   // the spawned child. Without this, spawning Electron tries to start
   // another Electron app instead of running our server.js as Node.
   env.ELECTRON_RUN_AS_NODE = '1';
-  env.COUNCIL_DB_PATH = path.join(
-    app.getPath('userData'),
-    'council.db',
-  );
-  // Move uploads into userData so they survive app updates
-  env.COUNCIL_UPLOADS_DIR = path.join(
-    app.getPath('userData'),
-    'uploads',
-  );
+  env.COUNCIL_DB_PATH = path.join(app.getPath('userData'), 'council.db');
+  env.COUNCIL_UPLOADS_DIR = path.join(app.getPath('userData'), 'uploads');
+  // Force the server to read/write the same key file the Electron menu
+  // and the npx CLI use, regardless of platform XDG defaults.
+  env.COUNCIL_CONFIG_DIR = configDir();
   return env;
 }
 
@@ -347,30 +367,36 @@ function buildMenu() {
 // IPC handlers — exposed to preload-isolated renderer
 
 ipcMain.handle('settings:get', () => {
-  const keys = store.get('keys') ?? {};
-  // Don't return raw values — return masked + presence map
+  const keys = readKeys();
   return {
     presence: Object.fromEntries(
       Object.entries(PROVIDER_ENV_VARS).map(([id]) => [id, Boolean(keys[id]?.trim())]),
     ),
     masked: Object.fromEntries(
-      Object.entries(keys).map(([id, v]) => [id, v ? `${v.slice(0, 6)}…${v.slice(-4)}` : '']),
+      Object.keys(PROVIDER_ENV_VARS).map((id) => [id, maskKey(keys[id])]),
     ),
   };
 });
 
 ipcMain.handle('settings:save', async (_evt, payload) => {
-  const next = { ...(store.get('keys') ?? {}) };
+  const next = { ...readKeys() };
   // Allowlist provider IDs — never accept arbitrary keys from the
   // renderer (defence in depth even with contextIsolation).
   const allowed = new Set(Object.keys(PROVIDER_ENV_VARS));
   for (const [id, value] of Object.entries(payload ?? {})) {
     if (!allowed.has(id)) continue;
-    if (typeof value === 'string') {
-      next[id] = value.trim();
+    if (typeof value !== 'string') continue;
+    const trimmed = value.trim();
+    if (trimmed === '') {
+      delete next[id];
+    } else {
+      next[id] = trimmed;
     }
   }
-  store.set('keys', next);
+  writeKeys(next);
+  // The bundled server now reads keys per-request, so a hot restart
+  // is no longer strictly necessary — but we still do it so any
+  // in-flight provider clients pick up the new values.
   try {
     await restartServer();
     return { ok: true };
