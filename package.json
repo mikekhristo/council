@@ -53,6 +53,8 @@
     "electron:build:mac": "npm run build && electron-builder --config electron-builder.yml --mac",
     "electron:build:win": "npm run build && electron-builder --config electron-builder.yml --win",
     "electron:build:linux": "npm run build && electron-builder --config electron-builder.yml --linux",
+    "electron:build:local": "npm run build && CSC_IDENTITY_AUTO_DISCOVERY=false electron-builder --config electron-builder.yml --mac --config.mac.identity=null --config.mac.notarize=false --publish never",
+    "electron:smoke": "npm run electron:build:local && open dist/mac-arm*/Council.app",
     "prepublishOnly": "npm run build",
     "prepare:icons": "electron-icon-builder --input=build/icon-source.png --output=build --flatten"
   },
