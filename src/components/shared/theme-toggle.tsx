@@ -46,26 +46,7 @@ export function ThemeToggle() {
       onClick={toggle}
       title={label}
       aria-label={label}
-      className="btn-ghost"
-      style={{
-        background: 'transparent',
-        border: '1px solid var(--rule)',
-        padding: '6px 8px',
-        color: 'var(--ink-mute)',
-        cursor: 'pointer',
-        display: 'inline-flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-        transition: 'color 150ms ease, border-color 150ms ease',
-      }}
-      onMouseEnter={(e) => {
-        e.currentTarget.style.color = 'var(--ink)';
-        e.currentTarget.style.borderColor = 'var(--ink-2)';
-      }}
-      onMouseLeave={(e) => {
-        e.currentTarget.style.color = 'var(--ink-mute)';
-        e.currentTarget.style.borderColor = 'var(--rule)';
-      }}
+      className="icon-btn"
     >
       <Icon name={isDark ? 'sun' : 'moon'} size={13} />
     </button>

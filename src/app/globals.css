@@ -209,6 +209,24 @@ html, body {
 .pill-err { color: var(--err); border-color: var(--err); background: oklch(0.94 0.04 25); }
 .pill-idle { color: var(--ink-mute); }
 
+/* ───── Icon button (gear / sun-moon in TopBar) ───── */
+.icon-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid var(--rule);
+  background: transparent;
+  padding: 6px 8px;
+  color: var(--ink-mute);
+  text-decoration: none;
+  cursor: pointer;
+  transition: color 150ms ease, border-color 150ms ease;
+}
+.icon-btn:hover {
+  color: var(--ink);
+  border-color: var(--ink-2);
+}
+
 /* ───── Status dot ───── */
 .dot {
   display: inline-block;
