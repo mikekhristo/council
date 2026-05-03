@@ -1,6 +1,7 @@
 import { ReactNode } from 'react';
 import { Wordmark } from './wordmark';
 import { StatusPill, type StatusKind } from './status-pill';
+import { ThemeToggle } from './theme-toggle';
 
 interface TopBarProps {
   breadcrumb?: string;
@@ -72,6 +73,7 @@ export function TopBar({
           <StatusPill kind={statusKind || 'idle'}>{status}</StatusPill>
         )}
         {right}
+        <ThemeToggle />
       </div>
     </header>
   );

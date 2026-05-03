@@ -16,7 +16,9 @@ type IconName =
   | 'gear'
   | 'history'
   | 'jump'
-  | 'speaker';
+  | 'speaker'
+  | 'sun'
+  | 'moon';
 
 interface IconProps {
   name: IconName;
@@ -104,6 +106,19 @@ export function Icon({ name, size = 14, className }: IconProps) {
       );
     case 'speaker':
       return <svg {...props}><circle cx="8" cy="8" r="5.5" /><circle cx="8" cy="8" r="2" /></svg>;
+    case 'sun':
+      return (
+        <svg {...props}>
+          <circle cx="8" cy="8" r="3" />
+          <path d="M8 1.5v1.5M8 13v1.5M14.5 8H13M3 8H1.5M12.6 3.4l-1 1M4.4 11.6l-1 1M12.6 12.6l-1-1M4.4 4.4l-1-1" />
+        </svg>
+      );
+    case 'moon':
+      return (
+        <svg {...props}>
+          <path d="M13 9.5A6 6 0 1 1 6.5 3a4.5 4.5 0 0 0 6.5 6.5z" fill="currentColor" stroke="currentColor" />
+        </svg>
+      );
     default:
       return null;
   }
