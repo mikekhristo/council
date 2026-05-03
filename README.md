@@ -39,18 +39,7 @@ Open the app → menu **Council → Settings…** → paste your API keys → cl
 
 > **Windows users:** the installer is unsigned, so SmartScreen will warn the first time. Click *More info → Run anyway*. (We may add a Windows code-signing cert later.)
 
-### B. `npx` (for developers — no install)
-
-If you have Node 20+:
-
-```bash
-npx @mikekhristo/council config       # interactively set API keys
-npx @mikekhristo/council               # boot it up; auto-opens browser
-```
-
-Keys live at `~/.config/council/config.json` (chmod 600), data at `~/.local/share/council/`.
-
-### C. Build from source
+### B. Build from source (developers / npx-via-clone)
 
 ```bash
 git clone https://github.com/mikekhristo/council.git
@@ -66,6 +55,15 @@ For the desktop app development loop:
 npm run electron:dev                  # runs next dev + electron with hot reload
 npm run electron:build:mac            # produces dist/Council-*.dmg locally (unsigned)
 ```
+
+You can also run the bundled CLI from a clone — same UX as `npx`, but using your local checkout:
+
+```bash
+node bin/council.cjs config           # interactively set keys
+node bin/council.cjs                  # boot, opens browser
+```
+
+Keys live at `~/.config/council/config.json` (chmod 600 on Unix), data at `~/.local/share/council/`. (A published `npx @mikekhristo/council` is on the roadmap but currently held back by per-platform native module ABI requirements for `better-sqlite3`.)
 
 Council degrades gracefully — providers without keys appear disabled with a *missing API key* tag in the UI.
 

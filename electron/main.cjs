@@ -56,6 +56,10 @@ function buildEnv() {
   env.PORT = String(serverPort);
   env.HOSTNAME = '127.0.0.1';
   env.NODE_ENV = 'production';
+  // Make process.execPath (the Electron binary) behave as plain Node in
+  // the spawned child. Without this, spawning Electron tries to start
+  // another Electron app instead of running our server.js as Node.
+  env.ELECTRON_RUN_AS_NODE = '1';
   env.COUNCIL_DB_PATH = path.join(
     app.getPath('userData'),
     'council.db',
@@ -91,8 +95,15 @@ async function startServer() {
   serverProc = spawn(process.execPath, [serverEntry], {
     env,
     stdio: ['ignore', 'pipe', 'pipe'],
-    cwd: path.join(process.resourcesPath, 'app'),
+    // The standalone server uses __dirname for module resolution, so
+    // launching it from its own directory is the safest convention.
+    cwd: path.dirname(serverEntry),
   });
+
+  // Keep the tail of stderr around so a post-startup crash can show
+  // something useful instead of just an exit code.
+  const STDERR_TAIL_BYTES = 4096;
+  let stderrTail = '';
 
   serverProc.stdout.on('data', (chunk) => {
     const out = chunk.toString();
@@ -102,15 +113,25 @@ async function startServer() {
     if (process.env.COUNCIL_LOG === '1') process.stdout.write(out);
   });
   serverProc.stderr.on('data', (chunk) => {
+    const text = chunk.toString();
+    stderrTail = (stderrTail + text).slice(-STDERR_TAIL_BYTES);
     if (process.env.COUNCIL_LOG === '1') process.stderr.write(chunk);
   });
   serverProc.on('exit', (code) => {
     serverReady = false;
     if (code !== 0 && !app.isQuitting) {
-      // Crash recovery: surface in the window if possible
       if (mainWindow && !mainWindow.isDestroyed()) {
+        const safe = (s) => String(s).replace(/[<>&"]/g, (c) => (
+          { '<': '&lt;', '>': '&gt;', '&': '&amp;', '"': '&quot;' }[c]
+        ));
+        const tail = stderrTail
+          ? `\n\nLast stderr:\n${safe(stderrTail)}`
+          : '';
+        const msg =
+          `Council server exited unexpectedly (code ${code}). ` +
+          `Open the app menu → Reload to retry.${tail}`;
         mainWindow.webContents.executeJavaScript(
-          `document.body.innerHTML = '<pre style=\"padding:32px;font-family:monospace;color:#c00\">Council server exited unexpectedly (code ${code}). Open the app menu → Reload to retry.</pre>';`,
+          `document.body.innerHTML = '<pre style="padding:32px;font-family:monospace;color:#c00;white-space:pre-wrap">' + ${JSON.stringify(msg)} + '</pre>';`,
         );
       }
     }
@@ -139,17 +160,41 @@ async function waitForServer(port, timeoutMs = 15000) {
   throw new Error(`Server did not become ready on port ${port}`);
 }
 
+// Guard against concurrent restartServer() invocations — without this,
+// two rapid calls (e.g. menu Settings + settings window) both observe
+// `serverProc = null` after the first kill and each spawn a fresh server.
+let restartInFlight = null;
 async function restartServer() {
-  if (serverProc) {
-    serverProc.removeAllListeners('exit');
-    serverProc.kill();
-    serverProc = null;
-  }
-  serverReady = false;
-  await startServer();
-  if (mainWindow && !mainWindow.isDestroyed()) {
-    await mainWindow.loadURL(`http://127.0.0.1:${serverPort}`);
-  }
+  if (restartInFlight) return restartInFlight;
+  restartInFlight = (async () => {
+    try {
+      if (serverProc) {
+        const old = serverProc;
+        serverProc = null;
+        old.removeAllListeners('exit');
+        old.kill();
+        // Wait for the OS to actually reap the child so the SQLite WAL
+        // is flushed and the port is released before we re-spawn.
+        await new Promise((resolve) => {
+          if (old.exitCode !== null) return resolve();
+          old.once('exit', resolve);
+          // 3s safety net — kill -9 if it didn't go quietly
+          setTimeout(() => {
+            if (old.exitCode === null) old.kill('SIGKILL');
+            resolve();
+          }, 3000).unref();
+        });
+      }
+      serverReady = false;
+      await startServer();
+      if (mainWindow && !mainWindow.isDestroyed()) {
+        await mainWindow.loadURL(`http://127.0.0.1:${serverPort}`);
+      }
+    } finally {
+      restartInFlight = null;
+    }
+  })();
+  return restartInFlight;
 }
 
 function createMainWindow() {
@@ -198,6 +243,18 @@ function createSettingsWindow() {
     },
   });
   settingsWindow.setMenuBarVisibility(false);
+  // External links from the settings window must open in the system
+  // browser, never in an Electron BrowserWindow (would inherit IPC).
+  settingsWindow.webContents.setWindowOpenHandler(({ url }) => {
+    shell.openExternal(url);
+    return { action: 'deny' };
+  });
+  settingsWindow.webContents.on('will-navigate', (e, url) => {
+    if (!url.startsWith(`file://`)) {
+      e.preventDefault();
+      shell.openExternal(url);
+    }
+  });
   settingsWindow.loadFile(path.join(__dirname, 'settings.html'));
   settingsWindow.on('closed', () => {
     settingsWindow = null;
@@ -304,15 +361,22 @@ ipcMain.handle('settings:get', () => {
 
 ipcMain.handle('settings:save', async (_evt, payload) => {
   const next = { ...(store.get('keys') ?? {}) };
+  // Allowlist provider IDs — never accept arbitrary keys from the
+  // renderer (defence in depth even with contextIsolation).
+  const allowed = new Set(Object.keys(PROVIDER_ENV_VARS));
   for (const [id, value] of Object.entries(payload ?? {})) {
+    if (!allowed.has(id)) continue;
     if (typeof value === 'string') {
       next[id] = value.trim();
     }
   }
   store.set('keys', next);
-  // Hot-restart the bundled server so new keys take effect
-  await restartServer();
-  return { ok: true };
+  try {
+    await restartServer();
+    return { ok: true };
+  } catch (err) {
+    return { ok: false, error: String(err.message ?? err) };
+  }
 });
 
 ipcMain.handle('settings:open-data-dir', () => {
@@ -320,6 +384,20 @@ ipcMain.handle('settings:open-data-dir', () => {
 });
 
 // App lifecycle
+
+// Multiple instances would share the same SQLite DB and settings store —
+// last-write-wins clobbering and intermittent WAL contention. Refuse a
+// second launch and focus the existing window instead.
+if (!app.requestSingleInstanceLock()) {
+  app.quit();
+  process.exit(0);
+}
+app.on('second-instance', () => {
+  if (mainWindow && !mainWindow.isDestroyed()) {
+    if (mainWindow.isMinimized()) mainWindow.restore();
+    mainWindow.focus();
+  }
+});
 
 app.whenReady().then(async () => {
   buildMenu();

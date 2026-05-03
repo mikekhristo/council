@@ -125,32 +125,61 @@ async function pickPort() {
 }
 
 async function prompt(question, { hidden = false } = {}) {
-  const rl = readline.createInterface({ input: process.stdin, output: process.stdout });
-  if (hidden && process.stdin.isTTY) {
-    process.stdout.write(question);
-    return new Promise((resolve) => {
-      const stdin = process.openStdin();
-      let value = '';
-      const onData = (char) => {
-        const c = char.toString();
-        if (c === '\n' || c === '\r' || c === '') {
-          stdin.removeListener('data', onData);
-          process.stdout.write('\n');
-          rl.close();
-          resolve(value);
-        } else if (c === '') {
-          process.exit(130);
-        } else if (c === '\b' || c === '') {
-          value = value.slice(0, -1);
-        } else {
-          value += c;
-        }
-      };
-      stdin.on('data', onData);
-    });
+  // Non-TTY (piped, CI) or non-hidden — readline handles it.
+  if (!hidden || !process.stdin.isTTY) {
+    const rl = readline.createInterface({ input: process.stdin, output: process.stdout });
+    return new Promise((resolve) => rl.question(question, (a) => { rl.close(); resolve(a); }));
   }
-  return new Promise((resolve) => rl.question(question, (a) => { rl.close(); resolve(a); }));
+
+  // Hidden: enable raw mode so we get char-by-char without OS line-buffering
+  // or terminal echo, then mask each char with '*'. Restore on exit.
+  process.stdout.write(question);
+  return new Promise((resolve) => {
+    const stdin = process.stdin;
+    const wasRaw = stdin.isRaw;
+    stdin.setRawMode(true);
+    stdin.resume();
+    stdin.setEncoding('utf8');
+
+    let value = '';
+    const cleanup = () => {
+      stdin.removeListener('data', onData);
+      stdin.setRawMode(wasRaw);
+    };
+    const onData = (chunk) => {
+      for (const ch of chunk) {
+        const code = ch.charCodeAt(0);
+        if (ch === '\r' || ch === '\n') {
+          process.stdout.write('\n');
+          cleanup();
+          return resolve(value);
+        }
+        if (code === 0x03) { // Ctrl+C
+          cleanup();
+          process.stdout.write('\n');
+          process.exit(130);
+        }
+        if (code === 0x04) { // Ctrl+D — submit current value
+          process.stdout.write('\n');
+          cleanup();
+          return resolve(value);
+        }
+        if (code === 0x7f || code === 0x08) { // DEL or BS
+          if (value.length > 0) {
+            value = value.slice(0, -1);
+            process.stdout.write('\b \b');
+          }
+          continue;
+        }
+        if (code < 0x20) continue; // skip other control chars
+        value += ch;
+        process.stdout.write('*');
+      }
+    };
+    stdin.on('data', onData);
+  });
 }
+
 
 async function runConfig() {
   console.log('\nCouncil — bring-your-own-key configuration');
@@ -269,7 +298,15 @@ async function startServer() {
   };
   process.on('SIGINT', () => shutdown('SIGINT'));
   process.on('SIGTERM', () => shutdown('SIGTERM'));
-  proc.on('exit', (code) => process.exit(code ?? 0));
+  proc.on('exit', (code, signal) => {
+    // Signal-killed children report code=null; map to 1 so CI / callers
+    // can detect abnormal termination instead of silently exiting 0.
+    if (code === null && signal) {
+      console.error(`council: server killed by ${signal}`);
+      process.exit(1);
+    }
+    process.exit(code ?? 0);
+  });
 }
 
 async function main() {

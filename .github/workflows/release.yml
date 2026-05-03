@@ -12,6 +12,12 @@ on:
 permissions:
   contents: write
 
+# Only one release build per tag at a time. Don't cancel an in-flight
+# build if a new tag arrives — wait it out.
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
 jobs:
   build:
     strategy:
@@ -46,29 +52,32 @@ jobs:
       - name: Build Next standalone bundle
         run: npm run build
 
-      # ── macOS: import the Developer ID cert into a fresh keychain ──
-      - name: Import Apple Developer ID certificate
+      # Fail loudly if any signing/notarization secret is missing rather
+      # than silently shipping an unnotarized DMG.
+      - name: Verify Apple secrets present (macOS)
         if: matrix.os == 'macos-latest'
         env:
+          APPLE_ID: ${{ secrets.APPLE_ID }}
+          APPLE_APP_PASSWORD: ${{ secrets.APPLE_APP_PASSWORD }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
           APPLE_CERT_P12: ${{ secrets.APPLE_CERT_P12 }}
           APPLE_CERT_PASSWORD: ${{ secrets.APPLE_CERT_PASSWORD }}
         run: |
-          set -euo pipefail
-          KEYCHAIN_PATH="$RUNNER_TEMP/build.keychain-db"
-          KEYCHAIN_PASSWORD=$(uuidgen)
-          security create-keychain -p "$KEYCHAIN_PASSWORD" "$KEYCHAIN_PATH"
-          security set-keychain-settings -lut 21600 "$KEYCHAIN_PATH"
-          security unlock-keychain -p "$KEYCHAIN_PASSWORD" "$KEYCHAIN_PATH"
+          set -e
+          missing=()
+          for v in APPLE_ID APPLE_APP_PASSWORD APPLE_TEAM_ID APPLE_CERT_P12 APPLE_CERT_PASSWORD; do
+            if [ -z "${!v}" ]; then missing+=("$v"); fi
+          done
+          if [ ${#missing[@]} -gt 0 ]; then
+            echo "::error::Missing required signing secrets: ${missing[*]}"
+            exit 1
+          fi
+          echo "All Apple secrets present."
 
-          CERT_PATH="$RUNNER_TEMP/cert.p12"
-          echo -n "$APPLE_CERT_P12" | base64 --decode > "$CERT_PATH"
-          security import "$CERT_PATH" \
-            -P "$APPLE_CERT_PASSWORD" \
-            -A -t cert -f pkcs12 -k "$KEYCHAIN_PATH"
-          security list-keychains -d user -s "$KEYCHAIN_PATH" $(security list-keychains -d user | tr -d '"')
-          security set-key-partition-list -S apple-tool:,apple:,codesign: -s -k "$KEYCHAIN_PASSWORD" "$KEYCHAIN_PATH"
-          security find-identity -v -p codesigning "$KEYCHAIN_PATH"
-
+      # electron-builder reads CSC_LINK (base64 cert) + CSC_KEY_PASSWORD
+      # and creates its own ephemeral keychain — no manual `security`
+      # dance required. APPLE_ID + APPLE_APP_SPECIFIC_PASSWORD +
+      # APPLE_TEAM_ID drive notarytool for notarization.
       - name: Build & sign & notarize (macOS)
         if: matrix.os == 'macos-latest'
         env:
@@ -79,7 +88,6 @@ jobs:
           APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
           CSC_LINK: ${{ secrets.APPLE_CERT_P12 }}
           CSC_KEY_PASSWORD: ${{ secrets.APPLE_CERT_PASSWORD }}
-          CSC_FOR_PULL_REQUEST: 'true'
         run: npx electron-builder --mac --config electron-builder.yml --publish always
 
       - name: Build (Windows, unsigned)
