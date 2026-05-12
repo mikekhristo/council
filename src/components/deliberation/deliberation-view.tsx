@@ -355,6 +355,7 @@ export function DeliberationView({ session }: DeliberationViewProps) {
               drawerState={drawerState}
               onDrawerStateChange={setDrawerState}
               arbiter={arbiter}
+              topic={session.topic}
             />
           )}
         </div>

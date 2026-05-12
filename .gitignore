@@ -48,5 +48,8 @@ council.db-wal
 uploads/
 .playwright-mcp/
 
+# electron-builder output
+dist/
+
 # local audit reports
 .gstack/

@@ -201,7 +201,7 @@ export function CreateSessionForm({
       <Section
         numeral="III"
         title="Rounds & consensus"
-        note="1–5 rounds · consensus is recommended"
+        note="More rounds = deeper deliberation, higher token cost"
       >
         <div
           className="flex flex-wrap"
@@ -245,7 +245,7 @@ export function CreateSessionForm({
               </span>
               <button
                 type="button"
-                onClick={() => setRounds(Math.min(5, rounds + 1))}
+                onClick={() => setRounds(Math.min(50, rounds + 1))}
                 className="flex items-center justify-center"
                 style={{
                   width: 36,

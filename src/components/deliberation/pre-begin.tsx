@@ -19,25 +19,44 @@ export function PreBegin({
 }: PreBeginProps) {
   const others = providers.filter((p) => p.id !== arbiter.id);
 
+  // The table sits inside a 320×200 container with 40px horizontal and
+  // 50px vertical padding — so the table itself spans x:[40,280],
+  // y:[50,150]. Seats are positioned with their HORIZONTAL center on
+  // the table edge so they appear to sit at it (chair half-on the
+  // edge, half-off).
   function positionFor(
     i: number,
     n: number,
   ): React.CSSProperties {
-    if (n === 1) return { left: '50%', bottom: 0, transform: 'translateX(-50%)' };
+    const LEFT_EDGE = 40;
+    const RIGHT_EDGE = 280;
+    const CENTER_X = 160;
+    // Vertical offsets put the seat box (32px tall) centered on the
+    // table edge: top = edge_y - 16.
+    const TOP_BAND = 34;     // seat center at y≈50 (table top edge)
+    const BOTTOM_BAND = 134; // seat center at y≈150 (table bottom edge)
+    const MID_BAND = 84;     // seat center at y≈100 (table mid)
+
+    const at = (x: number, top: number): React.CSSProperties => ({
+      left: x,
+      top,
+      transform: 'translateX(-50%)',
+    });
+
+    if (n === 1) return at(CENTER_X, BOTTOM_BAND);
     if (n === 2) {
-      return i === 0
-        ? { left: 0, top: '50%', transform: 'translateY(-50%)' }
-        : { right: 0, top: '50%', transform: 'translateY(-50%)' };
+      return i === 0 ? at(LEFT_EDGE, MID_BAND) : at(RIGHT_EDGE, MID_BAND);
     }
     if (n === 3) {
-      if (i === 0) return { left: 0, top: 30 };
-      if (i === 1) return { right: 0, top: 30 };
-      return { left: '50%', bottom: 0, transform: 'translateX(-50%)' };
+      if (i === 0) return at(LEFT_EDGE, MID_BAND);
+      if (i === 1) return at(RIGHT_EDGE, MID_BAND);
+      return at(CENTER_X, BOTTOM_BAND);
     }
-    if (i === 0) return { left: 0, top: 20 };
-    if (i === 1) return { right: 0, top: 20 };
-    if (i === 2) return { left: 0, bottom: 20 };
-    return { right: 0, bottom: 20 };
+    // n === 4 (only triggers if there are 5+ total members)
+    if (i === 0) return at(LEFT_EDGE, TOP_BAND);
+    if (i === 1) return at(RIGHT_EDGE, TOP_BAND);
+    if (i === 2) return at(LEFT_EDGE, BOTTOM_BAND);
+    return at(RIGHT_EDGE, BOTTOM_BAND);
   }
 
   return (

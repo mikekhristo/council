@@ -99,42 +99,27 @@ function NoKeysEmptyState() {
             maxWidth: 460,
           }}
         >
-          Council is bring-your-own-key. Add at least two provider API keys
-          to <code className="mono" style={{ fontStyle: 'normal' }}>.env.local</code> at
-          the repo root, then restart the dev server.
+          Council is bring-your-own-key. Configure at least two provider keys to begin a deliberation.
         </p>
-        <div
-          className="card"
+        <a
+          href="/settings"
+          className="btn btn-accent"
           style={{
-            padding: '14px 18px',
-            background: 'var(--paper-2)',
-            textAlign: 'left',
-            maxWidth: 460,
-            margin: '0 auto',
+            display: 'inline-flex',
+            padding: '12px 28px',
+            textDecoration: 'none',
+            fontSize: 14,
           }}
         >
-          <pre
-            className="mono"
-            style={{
-              fontSize: 12,
-              lineHeight: 1.7,
-              margin: 0,
-              color: 'var(--ink-2)',
-              whiteSpace: 'pre-wrap',
-            }}
-          >
-{`# .env.local
-ANTHROPIC_API_KEY=sk-ant-...
-OPENAI_API_KEY=sk-...
-GOOGLE_GENERATIVE_AI_API_KEY=...
-XAI_API_KEY=xai-...`}
-          </pre>
-        </div>
+          <span className="serif" style={{ fontSize: 15, fontStyle: 'italic' }}>
+            Add your API keys
+          </span>
+        </a>
         <p
           className="micro"
           style={{ marginTop: 20, color: 'var(--ink-faint)' }}
         >
-          Need keys? See README.md for provider links.
+          Or set them in <code className="mono" style={{ fontStyle: 'normal' }}>.env.local</code> if you prefer files. See README.md for provider links.
         </p>
       </div>
     </section>

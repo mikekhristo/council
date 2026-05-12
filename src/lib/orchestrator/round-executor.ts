@@ -1,5 +1,5 @@
 import { streamText } from 'ai';
-import { providerRegistry } from '../providers/registry';
+import { getProviderRegistry } from '../providers/registry';
 import type { ProviderId, ProviderConfig } from '../types';
 
 /**
@@ -79,8 +79,9 @@ async function executeForProvider(
   const startTime = Date.now();
 
   try {
-    const model = providerRegistry.languageModel(
-      config.modelId as Parameters<typeof providerRegistry.languageModel>[0],
+    const registry = getProviderRegistry();
+    const model = registry.languageModel(
+      config.modelId as Parameters<typeof registry.languageModel>[0],
     );
 
     const result = streamText({

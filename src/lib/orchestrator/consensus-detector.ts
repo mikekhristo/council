@@ -1,5 +1,5 @@
 import { generateText } from 'ai';
-import { providerRegistry } from '../providers/registry';
+import { getProviderRegistry } from '../providers/registry';
 import type { ResponseData } from './round-executor';
 
 /**
@@ -49,7 +49,7 @@ REASONING: <one or two sentences explaining the score>`;
 
   try {
     // Use a fast, cheap model for consensus detection
-    const model = providerRegistry.languageModel('openai:gpt-4o-mini');
+    const model = getProviderRegistry().languageModel('openai:gpt-4o-mini');
 
     const result = await generateText({
       model,

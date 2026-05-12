@@ -1,5 +1,5 @@
 {
-  "name": "council",
+  "name": "@mikekhristo/council",
   "version": "0.1.0",
   "description": "A local-first, bring-your-own-key workspace where multiple frontier LLMs deliberate on a question across rounds, then a chosen arbiter drafts the synthesis.",
   "author": "Mike Khristo <mike@uselayers.ai>",
@@ -12,7 +12,24 @@
   "bugs": {
     "url": "https://github.com/mikekhristo/council/issues"
   },
-  "private": true,
+  "main": "electron/main.cjs",
+  "bin": {
+    "council": "bin/council.cjs"
+  },
+  "files": [
+    "bin/",
+    "electron/",
+    ".next/standalone/",
+    ".next/static/",
+    "public/",
+    "build/entitlements.mac.plist",
+    "next.config.ts",
+    "README.md",
+    "LICENSE"
+  ],
+  "engines": {
+    "node": ">=20"
+  },
   "keywords": [
     "llm",
     "ai",
@@ -23,13 +40,23 @@
     "deliberation",
     "multi-agent",
     "byok",
-    "local-first"
+    "local-first",
+    "electron"
   ],
   "scripts": {
     "dev": "next dev --turbopack -p 3333",
-    "build": "next build",
+    "build": "next build && node scripts/post-build.cjs",
     "start": "next start",
-    "lint": "eslint"
+    "lint": "eslint",
+    "electron:dev": "concurrently -k \"COUNCIL_DEV_PORT=3333 next dev -p 3333\" \"wait-on http://127.0.0.1:3333 && electron .\"",
+    "electron:build": "npm run build && electron-builder --config electron-builder.yml",
+    "electron:build:mac": "npm run build && electron-builder --config electron-builder.yml --mac",
+    "electron:build:win": "npm run build && electron-builder --config electron-builder.yml --win",
+    "electron:build:linux": "npm run build && electron-builder --config electron-builder.yml --linux",
+    "electron:build:local": "npm run build && CSC_IDENTITY_AUTO_DISCOVERY=false electron-builder --config electron-builder.yml --mac --config.mac.identity=null --config.mac.notarize=false --publish never",
+    "electron:smoke": "npm run electron:build:local && open dist/mac-arm*/Council.app",
+    "prepublishOnly": "npm run build",
+    "prepare:icons": "electron-icon-builder --input=build/icon-source.png --output=build --flatten"
   },
   "dependencies": {
     "@ai-sdk/anthropic": "^3.0.58",
@@ -43,10 +70,13 @@
     "mammoth": "^1.11.0",
     "nanoid": "^5.1.6",
     "next": "16.1.6",
+    "open": "^10.1.0",
     "p-limit": "^7.3.0",
     "pdf-parse": "^2.4.5",
     "react": "19.2.3",
     "react-dom": "19.2.3",
+    "react-markdown": "^10.1.0",
+    "remark-gfm": "^4.0.1",
     "zod": "^4.3.6",
     "zustand": "^5.0.11"
   },
@@ -57,10 +87,18 @@
     "@types/pdf-parse": "^1.1.5",
     "@types/react": "^19",
     "@types/react-dom": "^19",
+    "concurrently": "^9.1.0",
     "drizzle-kit": "^0.31.9",
+    "electron": "^33.2.0",
+    "electron-builder": "^25.1.8",
+    "electron-icon-builder": "^2.0.1",
     "eslint": "^9",
     "eslint-config-next": "16.1.6",
     "tailwindcss": "^4",
-    "typescript": "^5"
+    "typescript": "^5",
+    "wait-on": "^8.0.1"
+  },
+  "publishConfig": {
+    "access": "public"
   }
 }

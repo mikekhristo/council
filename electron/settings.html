@@ -1,0 +1,260 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Council — Settings</title>
+<style>
+  :root {
+    --paper: #f7f5ee;
+    --paper-2: #efece1;
+    --ink: #1a1714;
+    --ink-2: #4a443d;
+    --ink-mute: #7a736b;
+    --ink-faint: #a8a299;
+    --rule: #d6d1c4;
+    --rule-strong: #b9b3a3;
+    --accent: #1f3a8a;
+    --accent-ink: #142560;
+    --done: #2f6f3f;
+    --err: #8a2222;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --paper: #1a1714;
+      --paper-2: #221f1a;
+      --ink: #e7e3da;
+      --ink-2: #c4beb1;
+      --ink-mute: #948c80;
+      --ink-faint: #6b6359;
+      --rule: #3a3530;
+      --rule-strong: #4d473f;
+    }
+  }
+  * { box-sizing: border-box; }
+  html, body {
+    margin: 0;
+    padding: 0;
+    background: var(--paper);
+    color: var(--ink);
+    font-family: ui-sans-serif, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    font-size: 14px;
+    line-height: 1.5;
+    -webkit-font-smoothing: antialiased;
+    user-select: none;
+  }
+  body { padding: 28px 32px 24px; }
+  h1 {
+    font-family: 'Newsreader', 'Source Serif Pro', Georgia, serif;
+    font-weight: 400;
+    font-size: 26px;
+    letter-spacing: -0.01em;
+    margin: 0 0 4px;
+  }
+  .sub {
+    font-family: 'Newsreader', Georgia, serif;
+    font-style: italic;
+    color: var(--ink-mute);
+    font-size: 14px;
+    margin-bottom: 20px;
+  }
+  .micro {
+    font-family: ui-monospace, 'SF Mono', Menlo, monospace;
+    font-size: 10.5px;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: var(--ink-mute);
+  }
+  hr { border: 0; border-top: 1px solid var(--rule); margin: 16px 0 18px; }
+  .field {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    margin-bottom: 14px;
+  }
+  .field label {
+    display: flex;
+    align-items: baseline;
+    gap: 10px;
+  }
+  .name {
+    font-weight: 500;
+    font-size: 13px;
+    color: var(--ink);
+  }
+  .env {
+    font-family: ui-monospace, 'SF Mono', Menlo, monospace;
+    font-size: 10.5px;
+    color: var(--ink-faint);
+  }
+  .status {
+    margin-left: auto;
+    font-family: ui-monospace, 'SF Mono', Menlo, monospace;
+    font-size: 10px;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+  }
+  .status.set { color: var(--done); }
+  .status.unset { color: var(--ink-faint); }
+  input[type="password"], input[type="text"] {
+    width: 100%;
+    background: var(--paper);
+    color: var(--ink);
+    border: 1px solid var(--rule);
+    border-bottom-color: var(--ink-2);
+    border-top: none; border-left: none; border-right: none;
+    border-radius: 0;
+    padding: 8px 0;
+    font-family: ui-monospace, 'SF Mono', Menlo, monospace;
+    font-size: 13px;
+    outline: none;
+    -webkit-user-select: text; user-select: text;
+  }
+  input::placeholder { color: var(--ink-faint); font-family: 'Newsreader', Georgia, serif; font-style: italic; font-size: 14px; }
+  input:focus { border-bottom-color: var(--accent); }
+  .row {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-top: 6px;
+  }
+  button {
+    font: inherit;
+    cursor: pointer;
+    border: 1px solid var(--rule-strong);
+    background: var(--paper);
+    color: var(--ink);
+    padding: 8px 16px;
+    font-size: 12px;
+    letter-spacing: 0.04em;
+    border-radius: 0;
+    transition: background 120ms ease, border-color 120ms ease;
+  }
+  button:hover { background: var(--paper-2); }
+  button.primary {
+    background: var(--ink);
+    color: var(--paper);
+    border-color: var(--ink);
+  }
+  button.primary:hover { background: var(--ink-2); border-color: var(--ink-2); }
+  button.ghost {
+    border-color: transparent;
+    background: transparent;
+    color: var(--ink-mute);
+  }
+  button.ghost:hover { color: var(--ink); border-color: var(--rule); }
+  .footer {
+    margin-top: 24px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+  .grow { flex: 1; }
+  .toast {
+    margin-top: 12px;
+    padding: 8px 12px;
+    background: rgba(47, 111, 63, 0.1);
+    color: var(--done);
+    border: 1px solid var(--done);
+    font-family: ui-monospace, 'SF Mono', Menlo, monospace;
+    font-size: 11px;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    opacity: 0;
+    transition: opacity 200ms ease;
+  }
+  .toast.show { opacity: 1; }
+  a { color: var(--accent); text-decoration: none; border-bottom: 1px solid var(--rule); }
+  a:hover { border-bottom-color: var(--accent); }
+</style>
+</head>
+<body>
+  <h1>Settings</h1>
+  <div class="sub">Bring-your-own-key. Council needs at least two providers configured to start a deliberation.</div>
+
+  <div class="micro">Provider keys</div>
+  <hr/>
+
+  <div class="field">
+    <label><span class="name">Anthropic</span><span class="env">ANTHROPIC_API_KEY</span><span class="status unset" data-status="anthropic">unset</span></label>
+    <input type="password" id="anthropic" placeholder="sk-ant-…" autocomplete="off" spellcheck="false" />
+    <div class="row"><a href="#" data-open="https://console.anthropic.com/settings/keys" class="env">console.anthropic.com</a></div>
+  </div>
+
+  <div class="field">
+    <label><span class="name">OpenAI</span><span class="env">OPENAI_API_KEY</span><span class="status unset" data-status="openai">unset</span></label>
+    <input type="password" id="openai" placeholder="sk-…" autocomplete="off" spellcheck="false" />
+    <div class="row"><a href="#" data-open="https://platform.openai.com/api-keys" class="env">platform.openai.com</a></div>
+  </div>
+
+  <div class="field">
+    <label><span class="name">Google AI Studio</span><span class="env">GOOGLE_GENERATIVE_AI_API_KEY</span><span class="status unset" data-status="google">unset</span></label>
+    <input type="password" id="google" placeholder="…" autocomplete="off" spellcheck="false" />
+    <div class="row"><a href="#" data-open="https://aistudio.google.com/apikey" class="env">aistudio.google.com</a></div>
+  </div>
+
+  <div class="field">
+    <label><span class="name">xAI</span><span class="env">XAI_API_KEY</span><span class="status unset" data-status="xai">unset</span></label>
+    <input type="password" id="xai" placeholder="xai-…" autocomplete="off" spellcheck="false" />
+    <div class="row"><a href="#" data-open="https://console.x.ai" class="env">console.x.ai</a></div>
+  </div>
+
+  <div class="footer">
+    <button class="ghost" id="open-data">Open data folder</button>
+    <span class="grow"></span>
+    <button id="cancel">Close</button>
+    <button class="primary" id="save">Save & restart server</button>
+  </div>
+
+  <div class="toast" id="toast">Saved · server restarted</div>
+
+<script>
+  const PROVIDERS = ['anthropic', 'openai', 'google', 'xai'];
+
+  async function load() {
+    const data = await window.council.settings.get();
+    for (const id of PROVIDERS) {
+      const isSet = data.presence[id];
+      const el = document.querySelector(`[data-status="${id}"]`);
+      el.textContent = isSet ? 'set' : 'unset';
+      el.classList.toggle('set', isSet);
+      el.classList.toggle('unset', !isSet);
+      // Show masked value in placeholder so user knows something is stored
+      const input = document.getElementById(id);
+      if (isSet && data.masked[id]) input.placeholder = data.masked[id];
+    }
+  }
+
+  document.getElementById('save').addEventListener('click', async (e) => {
+    const btn = e.currentTarget;
+    btn.disabled = true; btn.textContent = 'Restarting…';
+    const payload = {};
+    for (const id of PROVIDERS) {
+      const v = document.getElementById(id).value;
+      // Only send fields the user actually edited (non-empty input)
+      if (v.trim()) payload[id] = v.trim();
+    }
+    await window.council.settings.save(payload);
+    for (const id of PROVIDERS) document.getElementById(id).value = '';
+    await load();
+    btn.disabled = false; btn.textContent = 'Save & restart server';
+    const toast = document.getElementById('toast');
+    toast.classList.add('show');
+    setTimeout(() => toast.classList.remove('show'), 1800);
+  });
+
+  document.getElementById('cancel').addEventListener('click', () => window.close());
+  document.getElementById('open-data').addEventListener('click', () => window.council.settings.openDataDir());
+
+  document.querySelectorAll('[data-open]').forEach((a) => {
+    a.addEventListener('click', (e) => {
+      e.preventDefault();
+      // External nav handled by main window-open hook
+      window.open(a.getAttribute('data-open'));
+    });
+  });
+
+  load();
+</script>
+</body>
+</html>

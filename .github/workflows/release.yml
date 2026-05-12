@@ -1,0 +1,112 @@
+name: release
+
+# Triggered when release-please publishes a new tag (which it does after
+# its versioning PR is merged into main). Builds signed Mac DMGs +
+# unsigned Win/Linux artifacts and uploads them all to the GitHub Release.
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+permissions:
+  contents: write
+
+# Only one release build per tag at a time. Don't cancel an in-flight
+# build if a new tag arrives — wait it out.
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  build:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: macos-latest
+            artifact_glob: |
+              dist/*.dmg
+              dist/*.zip
+          - os: windows-latest
+            artifact_glob: |
+              dist/*.exe
+          - os: ubuntu-latest
+            artifact_glob: |
+              dist/*.AppImage
+              dist/*.deb
+
+    runs-on: ${{ matrix.os }}
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build Next standalone bundle
+        run: npm run build
+
+      # Fail loudly if any signing/notarization secret is missing rather
+      # than silently shipping an unnotarized DMG.
+      - name: Verify Apple secrets present (macOS)
+        if: matrix.os == 'macos-latest'
+        env:
+          APPLE_ID: ${{ secrets.APPLE_ID }}
+          APPLE_APP_PASSWORD: ${{ secrets.APPLE_APP_PASSWORD }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+          APPLE_CERT_P12: ${{ secrets.APPLE_CERT_P12 }}
+          APPLE_CERT_PASSWORD: ${{ secrets.APPLE_CERT_PASSWORD }}
+        run: |
+          set -e
+          missing=()
+          for v in APPLE_ID APPLE_APP_PASSWORD APPLE_TEAM_ID APPLE_CERT_P12 APPLE_CERT_PASSWORD; do
+            if [ -z "${!v}" ]; then missing+=("$v"); fi
+          done
+          if [ ${#missing[@]} -gt 0 ]; then
+            echo "::error::Missing required signing secrets: ${missing[*]}"
+            exit 1
+          fi
+          echo "All Apple secrets present."
+
+      # electron-builder reads CSC_LINK (base64 cert) + CSC_KEY_PASSWORD
+      # and creates its own ephemeral keychain — no manual `security`
+      # dance required. APPLE_ID + APPLE_APP_SPECIFIC_PASSWORD +
+      # APPLE_TEAM_ID drive notarytool for notarization.
+      - name: Build & sign & notarize (macOS)
+        if: matrix.os == 'macos-latest'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          NOTARIZE: 'true'
+          APPLE_ID: ${{ secrets.APPLE_ID }}
+          APPLE_APP_SPECIFIC_PASSWORD: ${{ secrets.APPLE_APP_PASSWORD }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+          CSC_LINK: ${{ secrets.APPLE_CERT_P12 }}
+          CSC_KEY_PASSWORD: ${{ secrets.APPLE_CERT_PASSWORD }}
+        run: npx electron-builder --mac --config electron-builder.yml --publish always
+
+      - name: Build (Windows, unsigned)
+        if: matrix.os == 'windows-latest'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: npx electron-builder --win --config electron-builder.yml --publish always
+
+      - name: Build (Linux)
+        if: matrix.os == 'ubuntu-latest'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: npx electron-builder --linux --config electron-builder.yml --publish always
+
+      - name: Upload artifacts (fallback if publish failed)
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: council-${{ matrix.os }}
+          path: ${{ matrix.artifact_glob }}
+          if-no-files-found: warn
+          retention-days: 14
