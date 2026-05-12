@@ -29,39 +29,17 @@ ${roundSections.join('\n\n---\n\n')}
 
 ## Your Task
 
-Produce a structured synthesis in EXACTLY the following JSON format. Do not include any text outside the JSON block.
+Produce a structured synthesis with the following fields:
 
-\`\`\`json
-{
-  "summary": "A 2-3 paragraph executive summary of the deliberation, capturing the main arguments, evolution of positions, and overall conclusions.",
-  "consensusPoints": [
-    {
-      "point": "A specific point of agreement",
-      "supportedBy": ["provider1", "provider2"],
-      "evidence": "Brief evidence or quotes supporting this consensus"
-    }
-  ],
-  "dissentPoints": [
-    {
-      "point": "A specific point of disagreement",
-      "supportedBy": ["provider1"],
-      "opposedBy": ["provider2"],
-      "evidence": "Brief summary of the competing arguments"
-    }
-  ],
-  "keyInsights": [
-    "A notable insight, novel argument, or important nuance that emerged during deliberation",
-    "Another key insight"
-  ]
-}
-\`\`\`
+- **summary**: A 2-3 paragraph executive summary capturing the main arguments, evolution of positions, and overall conclusions. Write in flowing prose; you may use **bold** for emphasis. Avoid bullet lists in the summary — save those for the structured sections below.
+- **consensusPoints**: Every meaningful point of agreement. For each, include the point itself, the providers who supported it (using exact provider IDs: anthropic, openai, google, xai), and brief supporting evidence.
+- **dissentPoints**: Every meaningful disagreement. For each, the point, the providers on each side (supportedBy / opposedBy), and a brief summary of the competing arguments.
+- **keyInsights**: The most valuable, non-obvious contributions from the deliberation. Each insight as a single complete sentence or two.
 
 Guidelines:
-- Include ALL meaningful points of consensus, even partial ones.
-- Include ALL meaningful points of dissent.
-- Key insights should capture the most valuable, non-obvious contributions from the deliberation.
-- Use the actual provider IDs (e.g., "anthropic", "openai", "google", "xai") in supportedBy/opposedBy arrays.
-- Be specific and concrete — avoid vague generalizations.`;
+- Include ALL meaningful points — do not summarize aggressively. Long deliberations deserve thorough syntheses.
+- Be specific and concrete — quote when useful. Avoid vague generalizations.
+- Provider IDs in supportedBy/opposedBy must be lowercase and exactly one of: anthropic, openai, google, xai.`;
 }
 
 /**

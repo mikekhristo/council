@@ -3,10 +3,12 @@
 import type { ProviderConfig, SynthesisResult, ProviderId } from '@/lib/types';
 import { DEFAULT_PROVIDERS } from '@/lib/providers/config';
 import { MarkdownRenderer } from '@/components/shared/markdown-renderer';
+import { CopyMarkdownButton } from './copy-button';
 
 interface SynthesisViewProps {
   synthesis: SynthesisResult;
   arbiter: ProviderConfig;
+  topic?: string;
 }
 
 function ProviderTag({ id }: { id: ProviderId }) {
@@ -41,34 +43,48 @@ function SectionHead({ label }: { label: string }) {
   );
 }
 
-export function SynthesisView({ synthesis, arbiter }: SynthesisViewProps) {
+export function SynthesisView({ synthesis, arbiter, topic }: SynthesisViewProps) {
   return (
     <div
       className="mx-auto"
       style={{ padding: '36px 48px 64px', maxWidth: 820 }}
     >
-      <div className="micro" style={{ marginBottom: 12 }}>
-        Folio · Synthesis
-      </div>
-      <h2
-        className="serif"
-        style={{
-          fontSize: 30,
-          lineHeight: 1.2,
-          margin: 0,
-          fontWeight: 400,
-          letterSpacing: '-0.012em',
-        }}
-      >
-        Proceedings of the Council.
-      </h2>
       <div
-        className="serif-i"
-        style={{ fontSize: 14, color: 'var(--ink-mute)', marginTop: 6 }}
+        className="flex items-start justify-between"
+        style={{ gap: 24, marginBottom: 12 }}
       >
-        Drafted by {arbiter.short}, arbiter ·{' '}
-        {synthesis.metadata.totalRounds} rounds ·{' '}
-        {synthesis.metadata.participatingProviders.length} members
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <div className="micro" style={{ marginBottom: 12 }}>
+            Folio · Synthesis
+          </div>
+          <h2
+            className="serif"
+            style={{
+              fontSize: 30,
+              lineHeight: 1.2,
+              margin: 0,
+              fontWeight: 400,
+              letterSpacing: '-0.012em',
+            }}
+          >
+            Proceedings of the Council.
+          </h2>
+          <div
+            className="serif-i"
+            style={{ fontSize: 14, color: 'var(--ink-mute)', marginTop: 6 }}
+          >
+            Drafted by {arbiter.short}, arbiter ·{' '}
+            {synthesis.metadata.totalRounds} rounds ·{' '}
+            {synthesis.metadata.participatingProviders.length} members
+          </div>
+        </div>
+        <div style={{ flexShrink: 0, paddingTop: 4 }}>
+          <CopyMarkdownButton
+            synthesis={synthesis}
+            arbiter={arbiter}
+            topic={topic}
+          />
+        </div>
       </div>
 
       <div className="rule-h" style={{ margin: '28px 0' }} />

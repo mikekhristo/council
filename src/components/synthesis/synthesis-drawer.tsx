@@ -16,6 +16,7 @@ interface SynthesisDrawerProps {
   drawerState: DrawerState;
   onDrawerStateChange: (state: DrawerState) => void;
   arbiter: ProviderConfig;
+  topic?: string;
 }
 
 const COLLAPSED_HEIGHT = 44;
@@ -27,6 +28,7 @@ export function SynthesisDrawer({
   drawerState,
   onDrawerStateChange,
   arbiter,
+  topic,
 }: SynthesisDrawerProps) {
   const [isDragging, setIsDragging] = useState(false);
   const [dragHeight, setDragHeight] = useState<number | null>(null);
@@ -198,7 +200,7 @@ export function SynthesisDrawer({
           )}
 
           {!isSynthesizing && synthesis && (
-            <SynthesisView synthesis={synthesis} arbiter={arbiter} />
+            <SynthesisView synthesis={synthesis} arbiter={arbiter} topic={topic} />
           )}
         </div>
       )}

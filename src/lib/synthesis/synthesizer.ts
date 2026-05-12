@@ -1,15 +1,34 @@
-import { streamText } from 'ai';
+import { streamObject } from 'ai';
+import { z } from 'zod';
 import { nanoid } from 'nanoid';
 import { getProviderRegistry } from '../providers/registry';
 import { buildSynthesisPrompt, buildSynthesisSystemPrompt } from './prompts';
 import { getProviderConfig } from '../providers/config';
-import type { Session, Round, SynthesisResult, SynthesisPoint, ProviderId } from '../types';
+import type { Session, Round, SynthesisResult, ProviderId } from '../types';
+
+// Schema enforced by streamObject — the provider's native structured
+// output mode (Anthropic/OpenAI/Google) returns a value that matches
+// this exactly, so we never need to parse JSON from prose or recover
+// from truncated output the way the old streamText path did.
+const SynthesisPointSchema = z.object({
+  point: z.string(),
+  supportedBy: z.array(z.string()),
+  opposedBy: z.array(z.string()).optional(),
+  evidence: z.string().optional().default(''),
+});
+
+const SynthesisSchema = z.object({
+  summary: z.string(),
+  consensusPoints: z.array(SynthesisPointSchema),
+  dissentPoints: z.array(SynthesisPointSchema),
+  keyInsights: z.array(z.string()),
+});
 
 /**
  * Run synthesis over a completed deliberation session.
  *
- * Streams the synthesis output via the onChunk callback, then parses
- * the full response into a SynthesisResult.
+ * Streams partial summary text via the onChunk callback for the
+ * drawer's live preview, then returns a validated SynthesisResult.
  *
  * If arbiterId is provided, that provider runs synthesis.
  * Otherwise, a random participating provider is chosen.
@@ -35,14 +54,12 @@ export async function runSynthesis(
   if (arbiterId && successfulProviders.has(arbiterId)) {
     synthesizerId = arbiterId;
   } else if (arbiterId) {
-    // Requested arbiter failed during deliberation — fall back to a successful one
     console.log(`[synthesis] Requested arbiter ${arbiterId} failed during deliberation, falling back`);
     const fallbacks = session.providers.filter((p) => successfulProviders.has(p));
     synthesizerId = fallbacks.length > 0
       ? fallbacks[Math.floor(Math.random() * fallbacks.length)]
-      : session.providers[0]; // last resort
+      : session.providers[0];
   } else {
-    // Randomly pick from successful providers
     const candidates = session.providers.filter((p) => successfulProviders.has(p));
     const pool = candidates.length > 0 ? candidates : session.providers;
     synthesizerId = pool[Math.floor(Math.random() * pool.length)];
@@ -58,37 +75,53 @@ export async function runSynthesis(
   const systemPrompt = buildSynthesisSystemPrompt();
   const userPrompt = buildSynthesisPrompt(session.topic, allRounds);
 
-  let fullContent = '';
   let usage = { inputTokens: 0, outputTokens: 0 };
+  let result: z.infer<typeof SynthesisSchema> = {
+    summary: '',
+    consensusPoints: [],
+    dissentPoints: [],
+    keyInsights: [],
+  };
 
   try {
-    const result = streamText({
+    const stream = streamObject({
       model,
+      schema: SynthesisSchema,
       system: systemPrompt,
       prompt: userPrompt,
-      maxOutputTokens: 4096,
+      // No maxOutputTokens — synthesis of a long deliberation can
+      // easily exceed the old 4096 cap. Let the model run to natural
+      // completion; the schema guarantees the shape is valid.
       temperature: 0.3,
     });
 
-    for await (const chunk of result.textStream) {
-      fullContent += chunk;
-      onChunk(chunk);
+    // Stream the summary field as plain prose for the drawer's preview.
+    // We send only newly-appended text so the UI's accumulator works
+    // identically to the previous streamText path.
+    let lastSummary = '';
+    for await (const partial of stream.partialObjectStream) {
+      if (typeof partial.summary === 'string' && partial.summary !== lastSummary) {
+        const delta = partial.summary.slice(lastSummary.length);
+        if (delta) onChunk(delta);
+        lastSummary = partial.summary;
+      }
     }
 
-    const rawUsage = await result.usage;
-    usage = { inputTokens: rawUsage.inputTokens ?? 0, outputTokens: rawUsage.outputTokens ?? 0 };
+    result = await stream.object;
+    const rawUsage = await stream.usage;
+    usage = {
+      inputTokens: rawUsage.inputTokens ?? 0,
+      outputTokens: rawUsage.outputTokens ?? 0,
+    };
   } catch (err) {
     const errMsg = err instanceof Error ? err.message : String(err);
     console.error(`[synthesis] Stream failed for ${synthesizerId}: ${errMsg}`);
-    // If we got partial content, use it. Otherwise set a fallback.
-    if (!fullContent) {
-      fullContent = JSON.stringify({
-        summary: `Synthesis failed (${synthesizerId}): ${errMsg}. The deliberation responses above contain the council members' analysis.`,
-        consensusPoints: [],
-        dissentPoints: [],
-        keyInsights: [],
-      });
-    }
+    result = {
+      summary: `Synthesis failed (${synthesizerId}): ${errMsg}. The deliberation responses above contain the council members' analysis.`,
+      consensusPoints: [],
+      dissentPoints: [],
+      keyInsights: [],
+    };
   }
 
   // Calculate totals across all rounds
@@ -104,17 +137,24 @@ export async function runSynthesis(
     }
   }
 
-  // Parse the synthesis JSON from the response
-  const parsed = parseSynthesisResponse(fullContent);
-
   return {
     id: nanoid(),
     sessionId: session.id,
     synthesizerId,
-    summary: parsed.summary,
-    consensusPoints: parsed.consensusPoints,
-    dissentPoints: parsed.dissentPoints,
-    keyInsights: parsed.keyInsights,
+    summary: result.summary,
+    consensusPoints: result.consensusPoints.map((p) => ({
+      point: p.point,
+      supportedBy: p.supportedBy,
+      opposedBy: p.opposedBy,
+      evidence: p.evidence ?? '',
+    })),
+    dissentPoints: result.dissentPoints.map((p) => ({
+      point: p.point,
+      supportedBy: p.supportedBy,
+      opposedBy: p.opposedBy,
+      evidence: p.evidence ?? '',
+    })),
+    keyInsights: result.keyInsights,
     metadata: {
       totalRounds: allRounds.length,
       participatingProviders: Array.from(participatingProviders),
@@ -122,56 +162,5 @@ export async function runSynthesis(
       totalLatencyMs,
     },
     createdAt: new Date(),
-  };
-}
-
-interface ParsedSynthesis {
-  summary: string;
-  consensusPoints: SynthesisPoint[];
-  dissentPoints: SynthesisPoint[];
-  keyInsights: string[];
-}
-
-/**
- * Parse the model's response to extract the structured synthesis JSON.
- * Falls back to treating the entire response as a summary if parsing fails.
- */
-function parseSynthesisResponse(text: string): ParsedSynthesis {
-  // Try to extract JSON from code blocks first
-  const jsonBlockMatch = text.match(/```(?:json)?\s*\n?([\s\S]*?)\n?```/);
-  const jsonStr = jsonBlockMatch ? jsonBlockMatch[1] : text;
-
-  try {
-    const parsed = JSON.parse(jsonStr.trim());
-
-    return {
-      summary: typeof parsed.summary === 'string' ? parsed.summary : text,
-      consensusPoints: Array.isArray(parsed.consensusPoints)
-        ? parsed.consensusPoints.map(normalizePoint)
-        : [],
-      dissentPoints: Array.isArray(parsed.dissentPoints)
-        ? parsed.dissentPoints.map(normalizePoint)
-        : [],
-      keyInsights: Array.isArray(parsed.keyInsights)
-        ? parsed.keyInsights.filter((i: unknown) => typeof i === 'string')
-        : [],
-    };
-  } catch {
-    // If JSON parsing fails, use the raw text as the summary
-    return {
-      summary: text,
-      consensusPoints: [],
-      dissentPoints: [],
-      keyInsights: [],
-    };
-  }
-}
-
-function normalizePoint(raw: Record<string, unknown>): SynthesisPoint {
-  return {
-    point: typeof raw.point === 'string' ? raw.point : '',
-    supportedBy: Array.isArray(raw.supportedBy) ? raw.supportedBy : [],
-    opposedBy: Array.isArray(raw.opposedBy) ? raw.opposedBy : undefined,
-    evidence: typeof raw.evidence === 'string' ? raw.evidence : '',
   };
 }
