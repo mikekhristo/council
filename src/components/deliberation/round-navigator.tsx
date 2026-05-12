@@ -37,7 +37,13 @@ export function RoundNavigator({
       <span className="micro">Rounds</span>
       <div
         className="flex"
-        style={{ border: '1px solid var(--rule-strong)' }}
+        style={{
+          border: '1px solid var(--rule-strong)',
+          // Scroll horizontally when there are many rounds. The
+          // sync/keyboard-legend area to the right keeps its space.
+          overflowX: 'auto',
+          maxWidth: 'min(60vw, 720px)',
+        }}
       >
         {rounds.map((r) => {
           const isActive = r === currentRound;
